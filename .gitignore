@@ -1,0 +1,5 @@
+/target
+**/*.rs.bk
+/migrations
+.env.ps1
+/.idea
