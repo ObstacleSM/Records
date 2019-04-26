@@ -135,7 +135,7 @@ pub fn latest_records(
     let latest_rec = join
         .offset(offset)
         .limit(limit)
-        .order_by(records::updated_at)
+        .order_by(records::updated_at.desc())
         .load(connection)?;
 
     Ok(latest_rec)
@@ -206,13 +206,18 @@ pub fn player_records(
             FROM records
             INNER JOIN players ON records.player_id=players.login
             INNER JOIN maps ON records.map_id=maps.maniaplanet_map_id
+            WHERE records.map_id IN (
+                    SELECT records.map_id
+                    FROM records
+                    WHERE records.player_id = '{player}'
+            )
         )
         SELECT *
         FROM AllRecords
-        WHERE player_id = '{}'
-        ORDER BY updated_at
+        WHERE player_id = '{player}'
+        ORDER BY updated_at DESC
         ;"#,
-        player_id,
+        player = player_id,
     );
 
     let cur_player = player.unwrap();
