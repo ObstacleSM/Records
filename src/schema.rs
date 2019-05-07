@@ -15,6 +15,7 @@ table! {
 
 table! {
     records (map_id, player_id) {
+        rank -> Unsigned<Integer>,
         time -> Integer,
         respawn_count -> Integer,
         try_count -> Integer,

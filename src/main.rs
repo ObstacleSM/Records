@@ -16,6 +16,8 @@ pub mod xml;
 
 type Pool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
 
+// Some fields need to be renamed to maintain backward-compatibility
+
 #[derive(Serialize)]
 #[serde(rename = "response")]
 pub struct HasFinishedResult<'a> {
@@ -42,7 +44,10 @@ fn string_to_xml_response(
 ) -> Result<HttpResponse, Error> {
     match res {
         Ok(body) => Ok(xml::xml_response(body)),
-        Err(_) => Ok(HttpResponse::InternalServerError().into()),
+        Err(e) => {
+            eprintln!("Error while sending xml: {}", e.to_string());
+            Ok(HttpResponse::InternalServerError().into())
+        }
     }
 }
 
@@ -99,7 +104,10 @@ fn overview_route(
 
         match result {
             Ok(records) => Ok(xml::to_string(records)),
-            Err(_) => Err(error::BlockingError::Error(())),
+            Err(e) =>  {
+                eprintln!("Error: {}", e.to_string());
+                Err(error::BlockingError::Error(()))
+            }
         }
     })
     // then we can send the response
@@ -251,9 +259,10 @@ fn map_replace_or_create(
 }
 
 fn main() -> std::io::Result<()> {
-    // Init info logs
+
     std::env::set_var("RUST_LOG", "actix_web=info");
     env_logger::init();
+
 
     // Create the database connection pool
     let database_url =
