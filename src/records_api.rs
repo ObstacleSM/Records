@@ -121,12 +121,13 @@ pub fn overview(
     let mut records = sql_query(query).load::<RankedRecord>(connection)?;
     let rows = 15;
 
-    let has_record: Result<Record, _> = records::table
+    let has_record: Option<Record> = records::table
         .find((map_id, player_id))
-        .get_result(connection);
+        .get_result(connection)
+        .optional()?;
 
     match has_record {
-        Ok(player_record) => {
+        Some(player_record) => {
             let player_idx = records
                 .binary_search_by(|record| record.time.cmp(&player_record.time))
                 .unwrap();
@@ -144,7 +145,7 @@ pub fn overview(
                 let mut end_idx = player_idx + row_minus_top3 / 2;
 
                 if end_idx >= records.len() {
-                    start_idx -= records.len() - 1 - end_idx;
+                    start_idx -= end_idx - records.len();
                     end_idx = records.len() - 1;
                 }
 
