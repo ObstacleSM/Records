@@ -146,7 +146,7 @@ pub fn overview(
 
                 if end_idx >= records.len() {
                     start_idx -= end_idx - records.len();
-                    end_idx = records.len() - 1;
+                    end_idx = records.len();
                 }
 
                 res.extend_from_slice(&records[start_idx..end_idx]);
