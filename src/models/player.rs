@@ -11,8 +11,20 @@ pub struct Player {
 
 impl Player {
     pub fn insert_or_replace(&self, conn: &MysqlConnection) -> QueryResult<usize> {
-        diesel::replace_into(players::table)
-            .values(self)
-            .execute(conn)
+        let exists: Option<Player> = players::table
+            .find(&self.login)
+            .get_result(conn)
+            .optional()?;
+
+        match exists {
+            Some(player) =>
+                diesel::update(&player)
+                .set(players::nickname.eq(&self.nickname))
+                .execute(conn),
+            _ =>
+                diesel::insert_into(players::table)
+                .values(self)
+                .execute(conn)
+        }
     }
 }
