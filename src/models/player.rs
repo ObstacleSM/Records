@@ -1,6 +1,7 @@
 use crate::schema::players;
 use diesel::prelude::*;
 use serde_derive::{Deserialize, Serialize};
+use crate::escape::Escape;
 
 #[derive(Deserialize, Serialize, Queryable, Identifiable, Insertable)]
 #[primary_key(login)]
@@ -16,14 +17,19 @@ impl Player {
             .get_result(conn)
             .optional()?;
 
+        let escaped_nick = format!("{}", Escape(&self.nickname));
+
         match exists {
             Some(player) =>
                 diesel::update(&player)
-                .set(players::nickname.eq(&self.nickname))
+                .set(players::nickname.eq(escaped_nick))
                 .execute(conn),
             _ =>
                 diesel::insert_into(players::table)
-                .values(self)
+                .values((
+                    players::login.eq(&self.login),
+                    players::nickname.eq(escaped_nick),
+                ))
                 .execute(conn)
         }
     }

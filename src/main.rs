@@ -13,6 +13,7 @@ pub mod models;
 pub mod records_api;
 pub mod schema;
 pub mod xml;
+pub mod escape;
 
 type Pool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
 
