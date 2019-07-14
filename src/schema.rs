@@ -30,8 +30,4 @@ joinable!(maps -> players (player_id));
 joinable!(records -> maps (map_id));
 joinable!(records -> players (player_id));
 
-allow_tables_to_appear_in_same_query!(
-    maps,
-    players,
-    records,
-);
+allow_tables_to_appear_in_same_query!(maps, players, records,);

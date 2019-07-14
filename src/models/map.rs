@@ -1,8 +1,8 @@
+use crate::escape::Escape;
+use crate::models::player::Player;
 use crate::schema::{maps, players};
 use diesel::prelude::*;
 use serde_derive::{Deserialize, Serialize};
-use crate::models::player::Player;
-use crate::escape::Escape;
 
 #[derive(Queryable, Identifiable, Insertable, Deserialize, Serialize, Debug)]
 #[primary_key(maniaplanet_map_id)]
@@ -22,7 +22,10 @@ impl Map {
             .optional()?;
 
         if let None = author_exists {
-            let player = Player {login: self.player_id.clone(), nickname: self.player_id.clone()};
+            let player = Player {
+                login: self.player_id.clone(),
+                nickname: self.player_id.clone(),
+            };
             diesel::insert_into(players::table)
                 .values(player)
                 .execute(conn)?;
@@ -36,18 +39,19 @@ impl Map {
         let escaped_name = format!("{}", Escape(&self.name));
 
         match map_exists {
-            Some(map) =>
-                diesel::update(&map)
-                .set((maps::name.eq(escaped_name), maps::player_id.eq(&self.player_id)))
+            Some(map) => diesel::update(&map)
+                .set((
+                    maps::name.eq(escaped_name),
+                    maps::player_id.eq(&self.player_id),
+                ))
                 .execute(conn),
-            _ =>
-                diesel::insert_into(maps::table)
+            _ => diesel::insert_into(maps::table)
                 .values((
                     maps::name.eq(escaped_name),
                     maps::maniaplanet_map_id.eq(&self.maniaplanet_map_id),
-                    maps::player_id.eq(&self.player_id)
+                    maps::player_id.eq(&self.player_id),
                 ))
-                .execute(conn)
+                .execute(conn),
         }
     }
 }

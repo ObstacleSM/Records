@@ -20,3 +20,5 @@ serde_derive = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 diesel = { version = "^1.1.0", features = ["mysql", "chrono", "r2d2"] }
 r2d2 = "0.8"
+
+juniper = "0.12.0"

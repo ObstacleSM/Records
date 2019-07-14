@@ -1,269 +1,66 @@
 #[macro_use]
 extern crate diesel;
 
-use actix_web::{error, middleware, web, App, Error, HttpResponse, HttpServer};
+// database
+pub mod app_state;
+pub mod graphql;
+pub mod models;
+pub mod schema;
+
+// records related functions
+pub mod records_api;
+
+// utils
+pub mod escape;
+pub mod xml;
+
+// routes used in game
+pub mod game;
+// routes used in website
+pub mod website;
+
+use crate::app_state::*;
+use crate::game::*;
+use crate::graphql::*;
+use crate::website::*;
+use std::sync::Arc;
+
+use actix_web::{middleware, web, App, Error, http, HttpResponse, HttpServer};
+use middleware::cors::Cors;
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use futures::Future;
-use serde_derive::{Deserialize, Serialize};
-
+use juniper::http::graphiql::graphiql_source;
+use juniper::http::GraphQLRequest;
 use std::env;
 
-pub mod models;
-pub mod records_api;
-pub mod schema;
-pub mod xml;
-pub mod escape;
-
-type Pool = r2d2::Pool<ConnectionManager<MysqlConnection>>;
-
-// Some fields need to be renamed to maintain backward-compatibility
-
-#[derive(Serialize)]
-#[serde(rename = "response")]
-pub struct HasFinishedResult<'a> {
-    #[serde(rename = "newBest")]
-    pub is_new_best: bool,
-    pub login: &'a str,
-    pub old: i32,
-    pub new: i32,
+fn graphiql() -> HttpResponse {
+    let html = graphiql_source("http://127.0.0.1:8080/graphql");
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(html)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct HasFinishedPayload {
-    pub time: i32,
-    #[serde(alias = "respawnCount")]
-    pub respawn_count: i32,
-    #[serde(alias = "mapId")]
-    pub map_id: String,
-    #[serde(alias = "playerId")]
-    pub player_id: String,
-}
-
-fn string_to_xml_response(
-    res: Result<String, error::BlockingError<error::BlockingError<()>>>,
-) -> Result<HttpResponse, Error> {
-    match res {
-        Ok(body) => Ok(xml::xml_response(body)),
-        Err(e) => {
-            eprintln!("Error while sending xml: {}", e.to_string());
-            Ok(HttpResponse::InternalServerError().into())
-        }
-    }
-}
-
-fn has_finished_route(
-    payload: web::Json<HasFinishedPayload>,
-    pool: web::Data<Pool>,
-) -> impl Future<Item = HttpResponse, Error = Error> {
-    // First we block during the access to the database
-    web::block(move || {
-        let conn: &MysqlConnection = &pool.get().unwrap();
-        let finished = records_api::has_finished(
-            conn,
-            payload.time,
-            payload.respawn_count,
-            &payload.player_id,
-            &payload.map_id,
-        );
-
-        let result = match finished {
-            Ok((is_new_best, old, new)) => HasFinishedResult {
-                is_new_best,
-                old,
-                new,
-                login: &payload.player_id,
-            },
-            Err(_) => return Err(error::BlockingError::Error(())),
-        };
-
-        match serde_xml_rs::to_string(&result) {
-            Ok(body) => Ok(body),
-            Err(_) => Err(error::BlockingError::Error(())),
-        }
-    })
-    // then we can send the response
-    .then(string_to_xml_response)
-}
-
-#[derive(Deserialize)]
-struct OverviewQuery {
-    #[serde(alias = "mapId")]
-    pub map_id: String,
-    #[serde(alias = "playerId")]
-    pub player_id: String,
-}
-
-fn overview_route(
-    parameters: web::Query<OverviewQuery>,
-    pool: web::Data<Pool>,
-) -> impl Future<Item = HttpResponse, Error = Error> {
-    // First we block during the access to the database
-    web::block(move || {
-        let conn: &MysqlConnection = &pool.get().unwrap();
-        let result = records_api::overview(conn, &parameters.player_id, &parameters.map_id);
-
-        match result {
-            Ok(records) => Ok(xml::to_string(records)),
-            Err(e) =>  {
-                eprintln!("Error: {}", e.to_string());
-                Err(error::BlockingError::Error(()))
-            }
-        }
-    })
-    // then we can send the response
-    .then(string_to_xml_response)
-}
-
-#[derive(Deserialize)]
-struct LatestQuery {
-    pub offset: Option<i64>,
-    pub limit: Option<i64>,
-}
-
-fn latest_records_route(
-    parameters: web::Query<LatestQuery>,
-    pool: web::Data<Pool>,
-) -> impl Future<Item = HttpResponse, Error = Error> {
-    // First we block during the access to the database
-    web::block(move || {
-        let offset = if let Some(o) = parameters.offset {
-            o
-        } else {
-            0
-        };
-
-        let limit = if let Some(l) = parameters.limit {
-            if l == 0 || l > 100 {
-                100
-            } else {
-                l
-            }
-        } else {
-            100
-        };
-
-        let conn: &MysqlConnection = &pool.get().unwrap();
-        let result = records_api::latest_records(conn, offset, limit);
-
-        match result {
-            Ok(records) => Ok(records),
-            Err(_) => Err(error::BlockingError::Error(())),
-        }
-    })
-    // then we can send the response
-    .then(move |res| match res {
-        Ok(body) => Ok(HttpResponse::Ok().json(body)),
-        Err(_) => Ok(HttpResponse::InternalServerError().into()),
-    })
-}
-
-fn map_records_route(
-    map_id: web::Path<String>,
-    parameters: web::Query<LatestQuery>,
-    pool: web::Data<Pool>,
-) -> impl Future<Item = HttpResponse, Error = Error> {
-    // First we block during the access to the database
-    web::block(move || {
-        let offset = if let Some(o) = parameters.offset {
-            o
-        } else {
-            0
-        };
-
-        let limit = if let Some(l) = parameters.limit {
-            if l == 0 || l > 100 {
-                100
-            } else {
-                l
-            }
-        } else {
-            100
-        };
-
-        let conn: &MysqlConnection = &pool.get().unwrap();
-        let result = records_api::map_records(conn, offset, limit, &map_id);
-
-        match result {
-            Ok(records) => Ok(records),
-            Err(e) => {
-                eprint!("{}", e.to_string());
-                Err(error::BlockingError::Error(()))
-            }
-        }
-    })
-    // then we can send the response
-    .then(move |res| match res {
-        Ok(None) => Ok(HttpResponse::NotFound().into()),
-        Ok(Some(body)) => Ok(HttpResponse::Ok().json(body)),
-        Err(_) => Ok(HttpResponse::InternalServerError().into()),
-    })
-}
-
-fn player_records_route(
-    player_id: web::Path<String>,
-    pool: web::Data<Pool>,
+fn graphql(
+    state: web::Data<Arc<AppState>>,
+    data: web::Json<GraphQLRequest>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     web::block(move || {
-        let conn: &MysqlConnection = &pool.get().unwrap();
-        let result = records_api::player_records(conn, &player_id);
-
-        match result {
-            Ok(records) => Ok(records),
-            Err(e) => {
-                eprint!("{}", e.to_string());
-                Err(error::BlockingError::Error(()))
-            }
-        }
+        let ctx = DbContext(state.pool.clone());
+        let res = data.execute(&state.schema, &ctx);
+        Ok::<_, serde_json::error::Error>(serde_json::to_string(&res)?)
     })
-    .then(move |res| match res {
-        Ok(None) => Ok(HttpResponse::NotFound().into()),
-        Ok(Some(body)) => Ok(HttpResponse::Ok().json(body)),
-        Err(_) => Ok(HttpResponse::InternalServerError().into()),
+    .map_err(Error::from)
+    .and_then(|user| {
+        Ok(HttpResponse::Ok()
+            .content_type("application/json")
+            .body(user))
     })
-}
-
-fn ok_stub() -> HttpResponse {
-    HttpResponse::Ok().body("<response><id>ok</id></response>")
-}
-
-fn player_replace_or_create(
-    data: web::Json<models::player::Player>,
-    pool: web::Data<Pool>,
-) -> impl Future<Item = HttpResponse, Error = Error> {
-    // First we block during the access to the database
-    web::block(move || {
-        let conn: &MysqlConnection = &pool.get().unwrap();
-        match data.insert_or_replace(conn) {
-            Ok(_size) => Ok(String::from("<response><id>ok</id></response>")),
-            Err(_) => Err(error::BlockingError::Error(())),
-        }
-    })
-    // then we can send the response
-    .then(string_to_xml_response)
-}
-
-fn map_replace_or_create(
-    data: web::Json<models::map::Map>,
-    pool: web::Data<Pool>,
-) -> impl Future<Item = HttpResponse, Error = Error> {
-    // First we block during the access to the database
-    web::block(move || {
-        let conn: &MysqlConnection = &pool.get().unwrap();
-        match data.insert_or_replace(conn) {
-            Ok(_size) => Ok(String::from("<response><id>ok</id></response>")),
-            Err(_) => Err(error::BlockingError::Error(())),
-        }
-    })
-    // then we can send the response
-    .then(string_to_xml_response)
 }
 
 fn main() -> std::io::Result<()> {
-
     std::env::set_var("RUST_LOG", "actix_web=info");
     env_logger::init();
-
 
     // Create the database connection pool
     let database_url =
@@ -273,21 +70,23 @@ fn main() -> std::io::Result<()> {
         .build(manager)
         .expect("Failed to create the MysqlConnection pool.");
 
-    HttpServer::new(move || {
-        use actix_web::http;
-        use middleware::cors::Cors;
+    let app_state = Arc::new(AppState {
+        pool,
+        schema: create_schema(),
+    });
 
+    HttpServer::new(move || {
         App::new()
-            .data(pool.clone())
+            .data(app_state.clone())
+            .wrap(middleware::Logger::default())
             .wrap(
                 Cors::new() // <- Construct CORS middleware builder
-                    .allowed_origin("https://www.obstacle.ovh")
-                    .allowed_methods(vec!["GET"])
+                    .allowed_origin("http://127.0.0.1:3000")
+                    .allowed_methods(vec!["GET", "POST", "OPTIONS"])
                     .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
                     .allowed_header(http::header::CONTENT_TYPE)
                     .max_age(3600),
             )
-            .wrap(middleware::Logger::default())
             .service(
                 web::resource("/api/Records/player-finished")
                     .route(web::post().to_async(has_finished_route)),
@@ -316,7 +115,9 @@ fn main() -> std::io::Result<()> {
                 web::resource("/api/player-records/{id}")
                     .route(web::get().to_async(player_records_route)),
             )
+            .service(web::resource("/graphql").route(web::post().to_async(graphql)))
+            .service(web::resource("/graphiql").route(web::get().to(graphiql)))
     })
-    .bind("127.0.0.1:3000")?
+    .bind("127.0.0.1:8080")?
     .run()
 }

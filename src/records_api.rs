@@ -6,7 +6,8 @@ use diesel::prelude::*;
 use diesel::sql_query;
 
 fn update_ranks(connection: &MysqlConnection, map_id: &str) -> QueryResult<usize> {
-    let query = format!(r#"
+    let query = format!(
+        r#"
 UPDATE
 	records,
 	(
@@ -20,7 +21,9 @@ UPDATE
 SET
 	records.rank = RankedRecords.rank
 WHERE records.map_id = RankedRecords.map_id and records.player_id = RankedRecords.player_id;
-"#, map_id);
+"#,
+        map_id
+    );
 
     sql_query(query).execute(connection)
 }
@@ -37,14 +40,24 @@ pub fn has_finished(
     let map: Option<Map> = maps::table.find(map_id).get_result(connection).optional()?;
     if let None = map {
         diesel::insert_into(maps::table)
-            .values((maps::maniaplanet_map_id.eq(map_id), maps::name.eq("Unknwown map"), maps::player_id.eq("smokegun")))
+            .values((
+                maps::maniaplanet_map_id.eq(map_id),
+                maps::name.eq("Unknwown map"),
+                maps::player_id.eq("smokegun"),
+            ))
             .execute(connection)?;
     }
 
-    let player: Option<Player> = players::table.find(player_id).get_result(connection).optional()?;
+    let player: Option<Player> = players::table
+        .find(player_id)
+        .get_result(connection)
+        .optional()?;
     if let None = player {
         diesel::insert_into(players::table)
-            .values((players::login.eq(player_id), players::nickname.eq(player_id)))
+            .values((
+                players::login.eq(player_id),
+                players::nickname.eq(player_id),
+            ))
             .execute(connection)?;
     }
 
@@ -97,7 +110,6 @@ pub fn has_finished(
 }
 
 pub fn overview(
-
     connection: &MysqlConnection,
     player_id: &str,
     map_id: &str,
@@ -197,8 +209,7 @@ pub fn map_records(
 
     let cur_map = map.unwrap();
 
-    let join = records::table
-        .inner_join(players::table);
+    let join = records::table.inner_join(players::table);
 
     let records = join
         .offset(offset)
@@ -218,7 +229,7 @@ pub fn player_records(
     connection: &MysqlConnection,
     player_id: &str,
 ) -> QueryResult<Option<(Player, Vec<(Record, Map)>)>> {
-    use crate::schema::{records, players, maps};
+    use crate::schema::{maps, players, records};
 
     let player: Option<Player> = players::table
         .find(player_id)
