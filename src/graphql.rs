@@ -82,6 +82,15 @@ impl Player {
             .filter(schema::maps::player_id.eq(&self.login))
             .load(conn)?)
     }
+
+    fn records(&self, context: &DbContext) -> FieldResult<Vec<Record>> {
+        let conn: &MysqlConnection = &context.0.get().unwrap();
+        Ok(schema::records::table
+            .filter(schema::records::player_id.eq(&self.login))
+            .order_by(schema::records::updated_at.desc())
+            .limit(100)
+            .load(conn)?)
+    }
 }
 
 #[juniper::object(Context = DbContext,)]
