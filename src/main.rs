@@ -16,17 +16,14 @@ pub mod xml;
 
 // routes used in game
 pub mod game;
-// routes used in website
-pub mod website;
 
 use crate::app_state::*;
 use crate::game::*;
 use crate::graphql::*;
-use crate::website::*;
 use std::sync::Arc;
 
 use actix_web::{middleware, web, App, Error, http, HttpResponse, HttpServer};
-use middleware::cors::Cors;
+use actix_cors::Cors;
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use futures::Future;
@@ -34,6 +31,7 @@ use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
 use std::env;
 
+#[allow(dead_code)]
 fn graphiql() -> HttpResponse {
     let html = graphiql_source("http://127.0.0.1:8080/graphql");
     HttpResponse::Ok()
@@ -102,18 +100,6 @@ fn main() -> std::io::Result<()> {
             .service(
                 web::resource("/api/Maps/replaceOrCreate")
                     .route(web::post().to_async(map_replace_or_create)),
-            )
-            .service(
-                web::resource("/api/latest-records")
-                    .route(web::get().to_async(latest_records_route)),
-            )
-            .service(
-                web::resource("/api/map-records/{id}")
-                    .route(web::get().to_async(map_records_route)),
-            )
-            .service(
-                web::resource("/api/player-records/{id}")
-                    .route(web::get().to_async(player_records_route)),
             )
             .service(web::resource("/graphql").route(web::post().to_async(graphql)))
             .service(web::resource("/graphiql").route(web::get().to(graphiql)))
