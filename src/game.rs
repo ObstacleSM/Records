@@ -6,13 +6,14 @@ use actix_web::{error, web, Error, HttpResponse};
 use diesel::prelude::*;
 use futures::Future;
 use serde_derive::{Deserialize, Serialize};
+use std::sync::Arc;
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename = "response")]
-pub struct HasFinishedResult<'a> {
+pub struct HasFinishedResult {
     #[serde(rename = "newBest")]
     pub is_new_best: bool,
-    pub login: &'a str,
+    pub login: String,
     pub old: i32,
     pub new: i32,
 }
@@ -42,7 +43,7 @@ fn string_to_xml_response(
 
 pub fn has_finished_route(
     payload: web::Json<HasFinishedPayload>,
-    state: web::Data<AppState>,
+    state: web::Data<Arc<AppState>>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     // First we block during the access to the database
     web::block(move || {
@@ -60,7 +61,7 @@ pub fn has_finished_route(
                 is_new_best,
                 old,
                 new,
-                login: &payload.player_id,
+                login: String::from(&payload.player_id),
             },
             Err(_) => return Err(error::BlockingError::Error(())),
         };
@@ -84,7 +85,7 @@ pub struct OverviewQuery {
 
 pub fn overview_route(
     parameters: web::Query<OverviewQuery>,
-    state: web::Data<AppState>,
+    state: web::Data<Arc<AppState>>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     // First we block during the access to the database
     web::block(move || {
@@ -109,7 +110,7 @@ pub fn ok_stub() -> HttpResponse {
 
 pub fn player_replace_or_create(
     data: web::Json<models::player::Player>,
-    state: web::Data<AppState>,
+    state: web::Data<Arc<AppState>>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     // First we block during the access to the database
     web::block(move || {
@@ -125,7 +126,7 @@ pub fn player_replace_or_create(
 
 pub fn map_replace_or_create(
     data: web::Json<models::map::Map>,
-    state: web::Data<AppState>,
+    state: web::Data<Arc<AppState>>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     // First we block during the access to the database
     web::block(move || {

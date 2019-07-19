@@ -54,10 +54,7 @@ impl QueryRoot {
             .optional()?)
     }
 
-    fn records(
-        &self,
-        context: &DbContext
-    ) -> FieldResult<Vec<Record>> {
+    fn records(&self, context: &DbContext) -> FieldResult<Vec<Record>> {
         let conn: &MysqlConnection = &context.0.get().unwrap();
         Ok(schema::records::table
             .order_by(schema::records::updated_at.desc())
