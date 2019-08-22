@@ -131,7 +131,7 @@ pub fn overview(
     );
 
     let mut records = sql_query(query).load::<RankedRecord>(connection)?;
-    let rows = 15;
+    let mut rows = 15;
 
     let has_record: Option<Record> = records::table
         .find((map_id, player_id))
@@ -148,7 +148,7 @@ pub fn overview(
                 records.truncate(rows);
                 Ok(records)
             } else {
-                let mut res: Vec<RankedRecord> = vec![];
+                let mut res: Vec<RankedRecord> = Vec::with_capacity(rows);
 
                 res.extend_from_slice(&records[0..3]);
 
@@ -167,8 +167,18 @@ pub fn overview(
         }
 
         _ => {
-            records.truncate(rows);
-            Ok(records)
+            // We keep one row at the end for the player
+            rows -= 1;
+
+            if records.len() > rows {
+                let mut res: Vec<RankedRecord> = Vec::with_capacity(rows);
+                res.extend_from_slice(&records[..rows-3]);
+                res.extend_from_slice(&records[records.len()-3..]);
+                Ok(res)
+            } else {
+                records.truncate(rows);
+                Ok(records)
+            }
         }
     }
 }
