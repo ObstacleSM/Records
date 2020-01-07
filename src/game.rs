@@ -47,7 +47,17 @@ pub fn has_finished_route(
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     // First we block during the access to the database
     web::block(move || {
+        let banned_players = ["smokegun"];
+        let is_banned = banned_players
+            .iter()
+            .any(|&banned_player| payload.player_id == banned_player);
+
+        if is_banned {
+            return Err(error::BlockingError::Error(()));
+        }
+
         let conn: &MysqlConnection = &state.pool.get().unwrap();
+
         let finished = records_api::has_finished(
             conn,
             payload.time,

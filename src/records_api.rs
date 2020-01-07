@@ -38,7 +38,7 @@ pub fn has_finished(
     use crate::schema::{maps, players, records};
 
     let map: Option<Map> = maps::table.find(map_id).get_result(connection).optional()?;
-    if let None = map {
+    if map.is_none() {
         diesel::insert_into(maps::table)
             .values((
                 maps::maniaplanet_map_id.eq(map_id),
@@ -52,7 +52,7 @@ pub fn has_finished(
         .find(player_id)
         .get_result(connection)
         .optional()?;
-    if let None = player {
+    if player.is_none() {
         diesel::insert_into(players::table)
             .values((
                 players::login.eq(player_id),
@@ -172,8 +172,8 @@ pub fn overview(
 
             if records.len() > rows {
                 let mut res: Vec<RankedRecord> = Vec::with_capacity(rows);
-                res.extend_from_slice(&records[..rows-3]);
-                res.extend_from_slice(&records[records.len()-3..]);
+                res.extend_from_slice(&records[..rows - 3]);
+                res.extend_from_slice(&records[records.len() - 3..]);
                 Ok(res)
             } else {
                 records.truncate(rows);
@@ -203,12 +203,14 @@ pub fn latest_records(
     Ok(latest_rec)
 }
 
+pub type MapRecords =  (Map, Player, Vec<(Record, Player)>);
+
 pub fn map_records(
     connection: &MysqlConnection,
     offset: i64,
     limit: i64,
     map_id: &str,
-) -> QueryResult<Option<(Map, Player, Vec<(Record, Player)>)>> {
+) -> QueryResult<Option<MapRecords>> {
     use crate::schema::{maps, players, records};
 
     let map: Option<Map> = maps::table.find(map_id).get_result(connection).optional()?;
@@ -235,10 +237,12 @@ pub fn map_records(
     Ok(Some((cur_map, player, records)))
 }
 
+pub type PlayerRecords = (Player, Vec<(Record, Map)>);
+
 pub fn player_records(
     connection: &MysqlConnection,
     player_id: &str,
-) -> QueryResult<Option<(Player, Vec<(Record, Map)>)>> {
+) -> QueryResult<Option<PlayerRecords>> {
     use crate::schema::{maps, players, records};
 
     let player: Option<Player> = players::table

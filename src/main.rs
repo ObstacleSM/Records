@@ -105,7 +105,7 @@ fn main() -> std::io::Result<()> {
                     .route(web::post().to_async(map_replace_or_create)),
             )
             .service(web::resource("/graphql").route(web::post().to_async(graphql)))
-            //.service(web::resource("/graphiql").route(web::get().to(graphiql)))
+        //.service(web::resource("/graphiql").route(web::get().to(graphiql)))
     })
     .bind("127.0.0.1:3000")?
     .run()
@@ -114,9 +114,9 @@ fn main() -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{test, web, App};
-    use crate::models::player::Player;
     use crate::models::map::Map;
+    use crate::models::player::Player;
+    use actix_web::{test, web, App};
 
     fn create_app_state() -> Arc<AppState> {
         dotenv().ok();
@@ -152,8 +152,7 @@ mod tests {
     fn test_player_finished_post() {
         let state = create_app_state();
         let mut app = test::init_service(
-            App::new().data(Arc::clone(&state))
-                .service(
+            App::new().data(Arc::clone(&state)).service(
                 web::resource("/api/Records/player-finished")
                     .route(web::post().to_async(has_finished_route)),
             ),
@@ -178,12 +177,9 @@ mod tests {
     #[test]
     fn test_overview_get() {
         let state = create_app_state();
-        let mut app = test::init_service(
-            App::new().data(Arc::clone(&state))
-                .service(
-                    web::resource("/api/Records/overview").route(web::get().to_async(overview_route)),
-            ),
-        );
+        let mut app = test::init_service(App::new().data(Arc::clone(&state)).service(
+            web::resource("/api/Records/overview").route(web::get().to_async(overview_route)),
+        ));
         let req = test::TestRequest::get()
             .uri("/api/Records/overview?map_id=NullId&player_id=smokegun")
             .to_request();
@@ -214,8 +210,7 @@ mod tests {
     fn test_player_replace_or_create_post() {
         let state = create_app_state();
         let mut app = test::init_service(
-            App::new().data(Arc::clone(&state))
-                .service(
+            App::new().data(Arc::clone(&state)).service(
                 web::resource("/api/Players/replaceOrCreate")
                     .route(web::post().to_async(player_replace_or_create)),
             ),
@@ -234,7 +229,6 @@ mod tests {
         let resp = test::call_service(&mut app, req);
         assert!(resp.status().is_success());
     }
-
 
     #[test]
     fn test_map_replace_or_create_get() {
@@ -257,8 +251,7 @@ mod tests {
     fn test_map_replace_or_create_post() {
         let state = create_app_state();
         let mut app = test::init_service(
-            App::new().data(Arc::clone(&state))
-                .service(
+            App::new().data(Arc::clone(&state)).service(
                 web::resource("/api/Maps/replaceOrCreate")
                     .route(web::post().to_async(map_replace_or_create)),
             ),

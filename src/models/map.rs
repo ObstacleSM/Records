@@ -21,7 +21,7 @@ impl Map {
             .get_result(conn)
             .optional()?;
 
-        if let None = author_exists {
+        if author_exists.is_none() {
             let player = Player {
                 login: self.player_id.clone(),
                 nickname: self.player_id.clone(),
