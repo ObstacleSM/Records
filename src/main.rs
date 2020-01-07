@@ -162,7 +162,7 @@ mod tests {
             time: 72000,
             respawn_count: 32,
             map_id: String::from("NullId"),
-            player_id: String::from("smokegun"),
+            player_id: String::from("gotatang"),
         };
 
         let req = test::TestRequest::post()
@@ -181,7 +181,7 @@ mod tests {
             web::resource("/api/Records/overview").route(web::get().to_async(overview_route)),
         ));
         let req = test::TestRequest::get()
-            .uri("/api/Records/overview?map_id=NullId&player_id=smokegun")
+            .uri("/api/Records/overview?map_id=NullId&player_id=gotatang")
             .to_request();
 
         let resp = test::call_service(&mut app, req);
@@ -217,8 +217,8 @@ mod tests {
         );
 
         let payload = Player {
-            login: String::from("smokegun"),
-            nickname: String::from("smokegun"),
+            login: String::from("gotatang"),
+            nickname: String::from("gotatang"),
         };
 
         let req = test::TestRequest::post()
@@ -260,7 +260,7 @@ mod tests {
         let payload = Map {
             maniaplanet_map_id: String::from("NullId"),
             name: String::from("NullId"),
-            player_id: String::from("smokegun"),
+            player_id: String::from("gotatang"),
         };
 
         let req = test::TestRequest::post()
