@@ -47,7 +47,7 @@ pub fn has_finished_route(
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     // First we block during the access to the database
     web::block(move || {
-        let banned_players = ["51x7yn1n3"];
+        let banned_players = [];
         let is_banned = banned_players
             .iter()
             .any(|&banned_player| payload.player_id == banned_player);
